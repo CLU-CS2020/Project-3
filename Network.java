@@ -9,6 +9,10 @@ import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -41,7 +45,10 @@ public class Network
 
 	public void send(DatagramSocket socket, String hostName, int destPort, Segment... segments) throws Exception
 	{
-		for (Segment segment : segments)
+		List<Segment> shuffled = new ArrayList<>(segments.length);
+		shuffled.addAll(Arrays.asList(segments));
+		Collections.shuffle(shuffled);
+		for (Segment segment : shuffled)
 		{
 			send(socket, hostName, destPort, segment);
 		}
