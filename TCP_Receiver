@@ -1,0 +1,96 @@
+package project3;
+
+import java.io.*;
+import java.net.*;
+import java.util.Random;
+
+// sender for TCP
+public class TCP_Receiver {
+    /*
+    Conversely the receiver should do the following:
+
+• Wait for a SYN from the server containing the sender's initial sequence number.
+
+• Send a SYN-ACK to the sender containing the receiver's initial sequence number (do not wait for an ACK back acknowledging the SYN-ACK).
+
+• Correctly acknowledge bytes received from the sender.
+     */
+    static public int destport = 5432;
+    static public int bufsize = 512;
+    static public final int timeout = 15000; // time in milliseconds
+    static public final int UNIVERSAL_PORT = 5432;
+
+    static public void main(String args[]) throws Exception {
+        Random random = new Random(0);
+        Network network = new Network(random, 0);
+        String SenderIP = "10.100.28.60";
+
+        DatagramSocket s;
+        try {
+            s = new DatagramSocket(destport);
+        } catch (SocketException se) {
+            System.err.println("cannot create socket with port " + destport);
+            return;
+        }
+
+
+        // create DatagramPacket object for receiving data:\
+
+// incoming SYN segment
+        DatagramPacket incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
+        incomingMSG.setLength(bufsize);  // max received packet size
+        s.receive(incomingMSG);          // the actual receive operation
+        System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
+        byte[] data = incomingMSG.getData();
+        ByteArrayInputStream in = new ByteArrayInputStream(data);
+        ObjectInputStream is = new ObjectInputStream(in);
+        Segment incomingSegment = (Segment) is.readObject();
+        int ackNo = incomingSegment.getAckNo();
+        int SeqNo = incomingSegment.getSeqNo();
+        int length = incomingSegment.getLength();
+
+        if (incomingSegment.isSyn()) {
+            System.out.println("SYN Received!!");
+            Segment sendACK = new Segment(false, true, 0, 1, 1);
+            System.out.print("ACK sent!");
+            try {
+                network.sendGuaranteed(s, SenderIP, destport, sendACK);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.print("NO Message received.");
+        }
+
+        try {
+            s.setSoTimeout(timeout);       // set timeout in milliseconds
+        } catch (SocketException se) {
+            System.err.println("socket exception: timeout not set!");
+        }
+        // *** LISTEN LOOP ***
+        // read loop
+//        while (true) {
+//            try {
+//
+//                incomingMSG.setLength(bufsize);  // max received packet size
+//                s.receive(incomingMSG);          // the actual receive operation
+//                System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
+//                data = incomingMSG.getData();
+//                in = new ByteArrayInputStream(data);
+//                is = new ObjectInputStream(in);
+//                incomingSegment = (Segment) is.readObject();
+//                // receive code for interpreting arraylist
+//
+//
+//                //blah blah blah
+//
+//
+//                //send stuff
+//                network.sendGuaranteed(s,senderIP,destport,null);
+//
+//            } catch (Exception e) {
+//                e.getStackTrace();
+//            }
+//        }
+    }
+}
