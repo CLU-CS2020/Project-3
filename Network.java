@@ -2,9 +2,10 @@
  * Copyright OrangeDog LLC.
  * All rights reserved.
  */
-package project3;
+package zzz;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -30,16 +31,26 @@ public class Network
 		this.lossRate = failureRate;
 	}
 
+	private void actualSend(DatagramSocket socket, String hostName, int destPort, Segment segment) throws IOException
+	{
+		ByteArrayOutputStream b_stream = new ByteArrayOutputStream();
+		ObjectOutputStream o_stream = new ObjectOutputStream(b_stream);
+		o_stream.writeObject(segment);
+		byte[] data = b_stream.toByteArray();
+		DatagramPacket msg = new DatagramPacket(data, data.length, InetAddress.getByName(hostName), destPort);
+		socket.send(msg);
+	}
+
+	public void sendGuaranteed(DatagramSocket socket, String hostName, int destPort, Segment segment) throws Exception
+	{
+		this.actualSend(socket, hostName, destPort, segment);
+	}
+
 	public void send(DatagramSocket socket, String hostName, int destPort, Segment segment) throws Exception
 	{
 		if (random.nextDouble() > lossRate)
 		{
-			ByteArrayOutputStream b_stream = new ByteArrayOutputStream();
-			ObjectOutputStream o_stream = new ObjectOutputStream(b_stream);
-			o_stream.writeObject(segment);
-			byte[] data = b_stream.toByteArray();
-			DatagramPacket msg = new DatagramPacket(data, data.length, InetAddress.getByName(hostName), destPort);
-			socket.send(msg);
+			this.actualSend(socket, hostName, destPort, segment);
 		}
 	}
 
