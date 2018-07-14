@@ -1,29 +1,35 @@
-package project3;
-
-import java.io.*;
-import java.net.*;
+import java.io.ByteArrayInputStream;
+import java.io.ObjectInputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
+
 
 // sender for TCP
 public class TCP_Receiver {
+    private static final String SenderIP = "10.100.28.60";
     /*
     Conversely the receiver should do the following:
-
 • Wait for a SYN from the server containing the sender's initial sequence number.
-
 • Send a SYN-ACK to the sender containing the receiver's initial sequence number (do not wait for an ACK back acknowledging the SYN-ACK).
-
 • Correctly acknowledge bytes received from the sender.
      */
-    static public int destport = 5432;
-    static public int bufsize = 512;
-    static public final int timeout = 15000; // time in milliseconds
-    static public final int UNIVERSAL_PORT = 5432;
+
+    private static int destport = 5432;
+    private static int bufsize = 512;
+    private static final int timeout = 15000; // time in milliseconds
+    //private static final int UNIVERSAL_PORT = 5432;
+
 
     static public void main(String args[]) throws Exception {
+        //ArrayList<Segment> segmentList = new ArrayList();
+        HashMap<Integer, Integer> segmentlist = new HashMap<>();
         Random random = new Random(0);
         Network network = new Network(random, 0);
-        String SenderIP = "10.100.28.60";
+
 
         DatagramSocket s;
         try {
@@ -34,25 +40,32 @@ public class TCP_Receiver {
         }
 
 
-        // create DatagramPacket object for receiving data:\
-
 // incoming SYN segment
         DatagramPacket incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
         incomingMSG.setLength(bufsize);  // max received packet size
         s.receive(incomingMSG);          // the actual receive operation
-        System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
+        System.err.println("message from <" + incomingMSG.getAddress().getHostAddress()
+                + "," + incomingMSG.getPort() + ">");
+
         byte[] data = incomingMSG.getData();
         ByteArrayInputStream in = new ByteArrayInputStream(data);
         ObjectInputStream is = new ObjectInputStream(in);
         Segment incomingSegment = (Segment) is.readObject();
-        int ackNo = incomingSegment.getAckNo();
-        int SeqNo = incomingSegment.getSeqNo();
-        int length = incomingSegment.getLength();
+//        int ackNo = incomingSegment.getAckNo();
+//        int seqNo = incomingSegment.getSeqNo();
+//        int length = incomingSegment.getLength();
+        int seqNo = 0;
+        int ackNo = 0;
+        int length = 0;
+
 
         if (incomingSegment.isSyn()) {
             System.out.println("SYN Received!!");
+            ackNo += incomingSegment.getSeqNo();
             Segment sendACK = new Segment(false, true, 0, 1, 1);
+            seqNo = incomingSegment.getAckNo();
             System.out.print("ACK sent!");
+
             try {
                 network.sendGuaranteed(s, SenderIP, destport, sendACK);
             } catch (Exception e) {
@@ -67,30 +80,59 @@ public class TCP_Receiver {
         } catch (SocketException se) {
             System.err.println("socket exception: timeout not set!");
         }
-        // *** LISTEN LOOP ***
-        // read loop
-//        while (true) {
-//            try {
-//
-//                incomingMSG.setLength(bufsize);  // max received packet size
-//                s.receive(incomingMSG);          // the actual receive operation
-//                System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
-//                data = incomingMSG.getData();
-//                in = new ByteArrayInputStream(data);
-//                is = new ObjectInputStream(in);
-//                incomingSegment = (Segment) is.readObject();
-//                // receive code for interpreting arraylist
-//
-//
-//                //blah blah blah
-//
-//
-//                //send stuff
-//                network.sendGuaranteed(s,senderIP,destport,null);
-//
-//            } catch (Exception e) {
-//                e.getStackTrace();
-//            }
-//        }
+
+        while (true) try {
+            System.out.println("Listening");
+            boolean noNewSegments = false;
+            int totalSegments = 0;
+
+            //listen block
+            incomingMSG.setLength(bufsize);
+            s.receive(incomingMSG);
+            System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
+            data = incomingMSG.getData();
+            in = new ByteArrayInputStream(data);
+            is = new ObjectInputStream(in);
+            incomingSegment = (Segment) is.readObject();
+
+            totalSegments++;
+            if (!segmentlist.containsKey(incomingSegment.getSeqNo())) {// if incoming segment NOT found in map,
+                segmentlist.put(incomingSegment.getSeqNo(), incomingSegment.getLength());
+                // segmentList.add(incomingSegment); // add to list
+
+                if (incomingSegment.getSeqNo() == ackNo) {
+                    ackNo += segmentlist.get(incomingSegment.getLength());//hashmap
+                    //ackNo += incomingSegment.getLength(); // arraylist
+                    //   if incoming seqNo = current seqNO, update ackNo with incoming length.
+                }
+            } else {
+                while (totalSegments > 0) {
+//                    if (segmentList.contains(incomingSegment.getSeqNo() == ackNo)) { // arraylist
+//                        segmentList.iterator();
+//                        ackNo += incomingSegment.getSeqNo();
+//                    }
+                    if (segmentlist.containsKey(ackNo)) //hashmap
+                        ackNo += segmentlist.get(incomingSegment.getSeqNo());//hashmap
+                    totalSegments--;
+
+                    if (totalSegments == 0) {
+                        noNewSegments = true;
+                    }
+                }
+            }
+
+            //send stuff
+            if (noNewSegments) {
+
+                System.out.println("Received " + totalSegments + " Segment(s) from sender."); // prints total # of messages received.
+                String senderIP = "10.100.28.60";
+                network.sendGuaranteed(s, senderIP, destport, new Segment(false, true, seqNo, ackNo, length));
+            }
+
+        } catch (Exception e) {
+            e.getStackTrace();
+        }
     }
+
+
 }
