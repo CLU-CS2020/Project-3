@@ -89,10 +89,7 @@ public class TCPSender {
             System.out.println("Sending all data segments");
 
             sendNetwork.send(s, receiverIP, destport, segments);
-
-            //******************************************************
-            //*************NEED TIMEOUT FOR ACK RECEIVE*************
-            //******************************************************
+            
             while (true) {
                 try {
 
