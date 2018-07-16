@@ -11,6 +11,7 @@ import java.io.ObjectInputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -29,7 +30,7 @@ public class TCPSender {
 
     static public int destport = 5432;
     static public int bufsize = 512;
-    static public final int timeout = 15000;
+    static public final int timeout = 10000;
 
     /**
      * @param args the command line arguments
@@ -76,8 +77,6 @@ public class TCPSender {
         System.out.println("Sending SYN to " + receiverIP);
         Segment synAckSegment = (Segment) is.readObject();
 
-        
-        
         if (synAckSegment.isAck()) {
 
             try {
@@ -86,22 +85,51 @@ public class TCPSender {
                 System.err.println("socket exception: timeout not set!");
             }
 
+            System.out.println("SYN-ACK Received from " + incomingMSG.getAddress());
+            System.out.println("Sending all data segments");
+
             sendNetwork.send(s, receiverIP, destport, segments);
 
-            System.out.println("SYN-ACK Received from " + incomingMSG.getAddress());
-            
-//            while (true) {
-//
-//                incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
-//                incomingMSG.setLength(bufsize);  // max received packet size
-//                s.receive(incomingMSG);          // the actual receive operation
-//                System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
-//                data = incomingMSG.getData();
-//                in = new ByteArrayInputStream(data);
-//                is = new ObjectInputStream(in);
-//                Segment ackSegment = (Segment) is.readObject();
-//
-//            }
+            //******************************************************
+            //*************NEED TIMEOUT FOR ACK RECEIVE*************
+            //******************************************************
+            while (true) {
+                try {
+
+                    incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
+                    incomingMSG.setLength(bufsize);  // max received packet size
+                    s.receive(incomingMSG);          // the actual receive operation
+                    System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
+                    data = incomingMSG.getData();
+                    in = new ByteArrayInputStream(data);
+                    is = new ObjectInputStream(in);
+                    Segment ackSegment = (Segment) is.readObject();
+                    // Set a variable to the ack from the receiver and print.
+                    int lastAck = ackSegment.getAckNo();
+                    System.out.println(incomingMSG.getAddress() + " has acknowledged up to byte " + lastAck + ".");
+
+                    for (Segment segment : segmentsToSend) {
+                        if (segment.getSeqNo() < lastAck) {
+                            System.out.println("Segment with sequence number " + segment.getSeqNo() + " has been awknowldged. Removing from array list.");
+                            segmentsToSend.remove(segment);
+                        }
+                    }
+
+                    sendNetwork.send(s, receiverIP, destport, segments);
+
+                    if (segmentsToSend.isEmpty()) {
+                        System.out.println("All segments have been acknowledged. Ending connection.");
+                        break;
+                    }
+
+                } catch (SocketTimeoutException ste) {    // receive() timed out
+                    System.err.println("Response timed out. Sending segments again!");
+                    sendNetwork.send(s, receiverIP, destport, segments);
+                } catch (Exception ioe) {                // should never happen!
+                    System.err.println("General exception. Printing stack trace!");
+                    ioe.printStackTrace();
+                }
+            }
 
             // TODO code application logic here
         } else {
