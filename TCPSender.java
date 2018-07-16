@@ -64,7 +64,8 @@ public class TCPSender {
             new Segment(false, false, 73, 0, 2)};
 
         Segment synSegment = new Segment(true, false, 0, 0, 1);
-
+        
+        System.out.println("Sending SYN to " + receiverIP);
         sendNetwork.sendGuaranteed(s, receiverIP, destport, synSegment);
 
         DatagramPacket incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
@@ -74,7 +75,6 @@ public class TCPSender {
         byte[] data = incomingMSG.getData();
         ByteArrayInputStream in = new ByteArrayInputStream(data);
         ObjectInputStream is = new ObjectInputStream(in);
-        System.out.println("Sending SYN to " + receiverIP);
         Segment synAckSegment = (Segment) is.readObject();
 
         if (synAckSegment.isAck()) {
@@ -89,7 +89,7 @@ public class TCPSender {
             System.out.println("Sending all data segments");
 
             sendNetwork.send(s, receiverIP, destport, segments);
-            
+
             while (true) {
                 try {
 
