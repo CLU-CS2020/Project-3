@@ -6,13 +6,11 @@ import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Random;
-
 public class TCP_Receiver {
     private static final String SenderIP = "10.100.28.60";
     private static int destport = 5432;
     private static final int timeout = 15000; // time in milliseconds
-
-
+    
     private static Segment listen() throws IOException, ClassNotFoundException {
         DatagramSocket s = new DatagramSocket(destport);
         Segment incomingSegment;
@@ -31,7 +29,6 @@ public class TCP_Receiver {
         return incomingSegment;
 
     }
-
     private static void sendSYN_ACK() throws SocketException {
         Random random = new Random(0);
         Network network = new Network(random, 0);
@@ -61,31 +58,26 @@ public class TCP_Receiver {
     static public void main(String args[]) throws Exception {
         HashMap<Integer, Integer> SegmentMap = new HashMap<>();
         DatagramSocket s = new DatagramSocket(destport);
-
         int totalSegments = 0; // total # of overall segments received.
         int seqNo = 0;
         int ackNo = 0;
         int length = 0;
-
-        Segment incomingSegment = listen();
-        if (incomingSegment.isSyn()) {
-            ackNo += incomingSegment.getSeqNo();
-            seqNo = incomingSegment.getAckNo();
-            sendSYN_ACK();
-        } else {
-            System.out.print("NO SYN Message received.");
-
-            try {
-                s.setSoTimeout(timeout);       // set timeout in milliseconds
-            } catch (SocketException se) {
-                System.err.println("socket exception: timeout not set!");
-            }
-
+        
             while (true) try {
-                incomingSegment = listen();
-
+                Segment incomingSegment = listen();
+                if (incomingSegment.isSyn()) {
+                    ackNo += incomingSegment.getSeqNo();
+                    seqNo = incomingSegment.getAckNo();
+                    sendSYN_ACK();
+                }else {
+                    System.out.print("NO SYN Message received.");
+                }
+                    try {
+                        s.setSoTimeout(timeout);       // set timeout in milliseconds
+                    } catch (SocketException se) {
+                        System.err.println("socket exception: timeout not set!");
+                    }
                 if (!incomingSegment.isSyn() && !incomingSegment.isAck()) {
-
                     if (!SegmentMap.containsKey(incomingSegment.getSeqNo())) {
                         // if incoming segment doesn't have a key that matches Map,
                         SegmentMap.put(incomingSegment.getSeqNo(),
@@ -93,11 +85,9 @@ public class TCP_Receiver {
                         // add it to map
                         totalSegments++;
                     }
-
                     for (int i = 0; i <= totalSegments; i++) {
                         if (SegmentMap.containsKey(ackNo)) {
                             ackNo += SegmentMap.get(incomingSegment.getSeqNo());
-
                             i++;
                         }
                         else if ((i == totalSegments) && (SegmentMap.size() == 9)) {
@@ -114,6 +104,3 @@ public class TCP_Receiver {
             }
         }
     }
-}
-
-
