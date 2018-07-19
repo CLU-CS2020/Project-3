@@ -10,13 +10,12 @@ import java.util.HashMap;
 import java.util.Random;
 
 public class TCP_Receiver {
-    private static final String SenderIP = "10.100.28.60"; // ensure CORRECT IP address.
+    private static final String SenderIP = "10.100.39.163"; // ensure CORRECT IP address.
     private static int destport = 5432;
     private static final int timeout = 15000; // time in milliseconds
 
 
-    private static Segment listen() throws IOException, ClassNotFoundException {
-        DatagramSocket s = new DatagramSocket(destport);
+    private static Segment listen(DatagramSocket s) throws IOException, ClassNotFoundException {
         Segment incomingSegment;
 
         // incoming SYN segment
@@ -34,10 +33,9 @@ public class TCP_Receiver {
 
     }
 
-    private static void sendSYN_ACK() throws SocketException { // sends guaranteed message
+    private static void sendSYN_ACK(DatagramSocket s) throws SocketException { // sends guaranteed message
         Random random = new Random(0);
         Network network = new Network(random, 0);
-        DatagramSocket s = new DatagramSocket(destport);
         System.out.println("SYN Received");
         try {
             Segment sendACK = new Segment(true, true, 0, 1, 1);
@@ -48,12 +46,11 @@ public class TCP_Receiver {
         }
     }
 
-    private static void sendACK(int totalSegments, int seqNo, int ackNo, int length) throws Exception {// sends guaranteed message
+    private static void sendACK(int totalSegments, int seqNo, int ackNo, int length, DatagramSocket s) throws Exception {// sends guaranteed message
         Random random = new Random(0);
         Network network = new Network(random, 0);
-        DatagramSocket s = new DatagramSocket(destport);
         System.out.println("Received " + totalSegments + " Segment(s) from sender.");
-        String senderIP = "10.100.28.60";
+        String senderIP = "10.100.39.163";
         try {
             network.sendGuaranteed(s, senderIP, destport, new Segment(false, true, seqNo, ackNo, length));
         } catch (Exception e) {
@@ -72,11 +69,11 @@ public class TCP_Receiver {
         int length = 0;
 
         while (true) try {
-            Segment incomingSegment = listen();
+            Segment incomingSegment = listen(s);
             if (incomingSegment.isSyn()) {
-                ackNo += incomingSegment.getSeqNo();
+                ackNo += incomingSegment.getLength();
                 seqNo = incomingSegment.getAckNo();
-                sendSYN_ACK();
+                sendSYN_ACK(s);
             } else {
                 System.out.print("NO SYN Message received.");
             }
@@ -99,9 +96,9 @@ public class TCP_Receiver {
                         ackNo += SegmentMap.get(incomingSegment.getSeqNo());                    //Returns the value to which the specified key is mapped
                         i++;
                     }if ((i == totalSegments) && (SegmentMap.size() == 9)) {
-                        sendACK(totalSegments, seqNo, ackNo, length);                           /* if we have everything, send ack*/
+                        sendACK(totalSegments, seqNo, ackNo, length, s);                           /* if we have everything, send ack*/
                     }if (SegmentMap.size() != 9 && !SegmentMap.containsKey(ackNo)) {
-                        sendACK(totalSegments, seqNo, ackNo, length);                           /* if we don't have all the messages, and no key = ackNo,send ack for what we have */
+                        sendACK(totalSegments, seqNo, ackNo, length, s);                           /* if we don't have all the messages, and no key = ackNo,send ack for what we have */
                     }
                 }
             }else{
