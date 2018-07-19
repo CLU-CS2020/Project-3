@@ -90,7 +90,6 @@ public class TCPSender {
 
             while (true) {
                 try {
-                    Thread.sleep(1000);
                     incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
                     incomingMSG.setLength(bufsize);  // max received packet size
                     s.receive(incomingMSG);          // the actual receive operation
