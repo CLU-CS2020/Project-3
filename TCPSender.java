@@ -13,6 +13,7 @@ import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Random;
 
 /**
@@ -48,23 +49,20 @@ public class TCPSender {
             return;
         }
 
-        String receiverIP = "10.100.39.161";
-
-        ArrayList<Segment> segmentsToSend = new ArrayList<>();
+        String receiverIP = "10.100.46.177";
         Segment[] segments = {
             new Segment(false, false, 1, 0, 10),
             new Segment(false, false, 11, 0, 6),
             new Segment(false, false, 17, 0, 4),
             new Segment(false, false, 21, 0, 13),
             new Segment(false, false, 34, 0, 12),
-            new Segment(false, false, 49, 0, 15),
-            new Segment(false, false, 64, 0, 1),
-            new Segment(false, false, 65, 0, 3),
-            new Segment(false, false, 69, 0, 4),
-            new Segment(false, false, 73, 0, 2)};
+            new Segment(false, false, 46, 0, 15),
+            new Segment(false, false, 61, 0, 1),
+            new Segment(false, false, 62, 0, 3),
+            new Segment(false, false, 65, 0, 4),
+            new Segment(false, false, 69, 0, 2)};
 
         Segment synSegment = new Segment(true, false, 0, 0, 1);
-        
         System.out.println("Sending SYN to " + receiverIP);
         sendNetwork.sendGuaranteed(s, receiverIP, destport, synSegment);
 
@@ -92,7 +90,7 @@ public class TCPSender {
 
             while (true) {
                 try {
-
+                    Thread.sleep(1000);
                     incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
                     incomingMSG.setLength(bufsize);  // max received packet size
                     s.receive(incomingMSG);          // the actual receive operation
@@ -101,20 +99,30 @@ public class TCPSender {
                     in = new ByteArrayInputStream(data);
                     is = new ObjectInputStream(in);
                     Segment ackSegment = (Segment) is.readObject();
-                    // Set a variable to the ack from the receiver and print.
+                    
+                    System.out.println("***************************************");
+                    System.out.println("ACK received: " + ackSegment.toString());
                     int lastAck = ackSegment.getAckNo();
+                    boolean allSegmentsAck = true;
                     System.out.println(incomingMSG.getAddress() + " has acknowledged up to byte " + lastAck + ".");
+                    System.out.println("***************************************");
 
-                    for (Segment segment : segmentsToSend) {
+                    for (Segment segment : segments) {
                         if (segment.getSeqNo() < lastAck) {
-                            System.out.println("Segment with sequence number " + segment.getSeqNo() + " has been awknowldged. Removing from array list.");
-                            segmentsToSend.remove(segment);
+                            System.out.println("Segment with sequence number " + segment.getSeqNo() + " has been acknowldged.");
+                        } else {
+                            System.out.println("Resending the segment with sequence number " + segment.getSeqNo() + ".");
+                            sendNetwork.send(s, receiverIP, destport, segment);
                         }
                     }
 
-                    sendNetwork.send(s, receiverIP, destport, segments);
-
-                    if (segmentsToSend.isEmpty()) {
+                    for (Segment segment : segments) {
+                        if (segment.getSeqNo() > lastAck) {
+                            allSegmentsAck = false;
+                        }
+                    }
+                    
+                    if (allSegmentsAck) {
                         System.out.println("All segments have been acknowledged. Ending connection.");
                         break;
                     }
