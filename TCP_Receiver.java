@@ -29,6 +29,7 @@ public class TCP_Receiver {
         ByteArrayInputStream in = new ByteArrayInputStream(data);
         ObjectInputStream is = new ObjectInputStream(in);
         incomingSegment = (Segment) is.readObject();
+        System.out.println("**DEBUG** Incoming Segment: " + incomingSegment.toString());
         return incomingSegment;
 
     }
@@ -40,7 +41,7 @@ public class TCP_Receiver {
         try {
             Segment sendACK = new Segment(true, true, 0, 1, 1);
             network.sendGuaranteed(s, SenderIP, destport, sendACK);
-            System.out.print("ACK sent!");
+            System.out.println("ACK sent!");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -53,6 +54,7 @@ public class TCP_Receiver {
         String senderIP = "10.100.39.163";
         try {
             network.sendGuaranteed(s, senderIP, destport, new Segment(false, true, seqNo, ackNo, length));
+            System.out.println("**DEBUG** Outoing ackNo: " + ackNo);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -75,7 +77,7 @@ public class TCP_Receiver {
                 seqNo = incomingSegment.getAckNo();
                 sendSYN_ACK(s);
             } else {
-                System.out.print("NO SYN Message received.");
+                System.out.println("NO SYN Message received.");
             }
             try {
                 s.setSoTimeout(timeout);       // set timeout in milliseconds
