@@ -64,7 +64,7 @@ public class TCPSender {
 
         Segment synSegment = new Segment(true, false, 0, 0, 1);
         System.out.println("Sending SYN to " + receiverIP);
-        sendNetwork.sendGuaranteed(s, receiverIP, destport, synSegment);
+        sendNetwork.send(s, receiverIP, destport, synSegment);
 
         DatagramPacket incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
         incomingMSG.setLength(bufsize);  // max received packet size
