@@ -14,8 +14,8 @@ public class TCP_Receiver {
     private static int destport = 5432;
     private static final int timeout = 15000; // time in milliseconds
 
-    static Random random = new Random(0);
-    static Network network = new Network(random, 0.5);
+    static Random random = new Random();
+    static Network network = new Network(random, 0.9);
     private static void sendSYN_ACK(DatagramSocket s) throws SocketException { // sends guaranteed message
         System.out.println("SYN Received");
         try {
