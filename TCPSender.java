@@ -12,8 +12,10 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 
 /**
@@ -31,7 +33,7 @@ public class TCPSender {
 
     static public int destport = 5432;
     static public int bufsize = 512;
-    static public final int timeout = 10000;
+    static public final int timeout = 10;
 
     /**
      * @param args the command line arguments
@@ -39,7 +41,7 @@ public class TCPSender {
     public static void main(String[] args) throws IOException, Exception {
 
         Random sendRandom = new Random(0);
-        Network sendNetwork = new Network(sendRandom, 0);
+        Network sendNetwork = new Network(sendRandom, .8);
 
         DatagramSocket s;
         try {
@@ -49,7 +51,7 @@ public class TCPSender {
             return;
         }
 
-        String receiverIP = "10.100.46.177";
+        String receiverIP = "10.100.47.251";
         Segment[] segments = {
             new Segment(false, false, 1, 0, 10),
             new Segment(false, false, 11, 0, 6),
@@ -86,49 +88,70 @@ public class TCPSender {
             System.out.println("SYN-ACK Received from " + incomingMSG.getAddress());
             System.out.println("Sending all data segments");
 
+            Long currentTime = new Long(0);
+
+            HashMap<Segment, Long> segmentTimes = new HashMap<Segment, Long>() {
+                {
+                    put(segments[0], new Long(15));
+                    put(segments[1], new Long(15));
+                    put(segments[2], new Long(15));
+                    put(segments[3], new Long(15));
+                    put(segments[4], new Long(15));
+                    put(segments[5], new Long(15));
+                    put(segments[6], new Long(15));
+                    put(segments[7], new Long(15));
+                    put(segments[8], new Long(15));
+                    put(segments[9], new Long(15));
+                }
+            };
             sendNetwork.send(s, receiverIP, destport, segments);
 
             while (true) {
                 try {
-                    incomingMSG = new DatagramPacket(new byte[bufsize], bufsize);
-                    incomingMSG.setLength(bufsize);  // max received packet size
-                    s.receive(incomingMSG);          // the actual receive operation
-                    System.err.println("message from <" + incomingMSG.getAddress().getHostAddress() + "," + incomingMSG.getPort() + ">");
-                    data = incomingMSG.getData();
-                    in = new ByteArrayInputStream(data);
-                    is = new ObjectInputStream(in);
-                    Segment ackSegment = (Segment) is.readObject();
-                    
+                    Segment ackSegment = sendNetwork.receive(s);
+
                     System.out.println("***************************************");
                     System.out.println("ACK received: " + ackSegment.toString());
                     int lastAck = ackSegment.getAckNo();
-                    boolean allSegmentsAck = true;
                     System.out.println(incomingMSG.getAddress() + " has acknowledged up to byte " + lastAck + ".");
                     System.out.println("***************************************");
 
-                    for (Segment segment : segments) {
+                    Iterator<Segment> it = segmentTimes.keySet().iterator();
+                    while(it.hasNext())
+                    {
+                        Segment segment = it.next();
                         if (segment.getSeqNo() < lastAck) {
                             System.out.println("Segment with sequence number " + segment.getSeqNo() + " has been acknowldged.");
-                        } else {
-                            System.out.println("Resending the segment with sequence number " + segment.getSeqNo() + ".");
-                            sendNetwork.send(s, receiverIP, destport, segment);
+                            it.remove();
                         }
                     }
 
-                    for (Segment segment : segments) {
-                        if (segment.getSeqNo() > lastAck) {
-                            allSegmentsAck = false;
-                        }
-                    }
-                    
+                    boolean allSegmentsAck = segmentTimes.isEmpty();
+
                     if (allSegmentsAck) {
                         System.out.println("All segments have been acknowledged. Ending connection.");
                         break;
                     }
 
                 } catch (SocketTimeoutException ste) {    // receive() timed out
-                    System.err.println("Response timed out. Sending segments again!");
-                    sendNetwork.send(s, receiverIP, destport, segments);
+                    System.out.println("Response timed out. Sending un-acknowledged segments again!" + segmentTimes.size());
+                    System.out.println("----------------------------------");
+                    currentTime += 10;
+                    System.out.println("Current running time is " + currentTime + " ms.");
+                    for (Map.Entry<Segment, Long> entry : segmentTimes.entrySet()) {
+                        Segment segment = entry.getKey();
+                        Long segmentTime = entry.getValue();
+                        if (segmentTime > 60000) {
+                            System.out.println("Timeout of 60000 MS exceeded. Closing connection.");
+                            System.exit(1);
+                        } else if (segmentTime < currentTime) {
+                            System.out.println("Resending the segment with sequence number " + segment.getSeqNo() + ".");
+                            segmentTimes.put(segment, (segmentTime * 2));
+                            sendNetwork.send(s, receiverIP, destport, segment);
+                        }
+                    }
+                    System.out.println("----------------------------------");
+
                 } catch (Exception ioe) {                // should never happen!
                     System.err.println("General exception. Printing stack trace!");
                     ioe.printStackTrace();
