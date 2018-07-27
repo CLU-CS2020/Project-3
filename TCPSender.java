@@ -40,8 +40,8 @@ public class TCPSender {
      */
     public static void main(String[] args) throws IOException, Exception {
 
-        Random sendRandom = new Random(0);
-        Network sendNetwork = new Network(sendRandom, .8);
+        Random sendRandom = new Random();
+        Network sendNetwork = new Network(sendRandom, .9);
 
         DatagramSocket s;
         try {
